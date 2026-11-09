@@ -1,0 +1,82 @@
+<!-- ... existing code ... -->
+// 초기화 실행
+render();
+
+// ----------------------------------------------------------------------
+// 💡 [필수] 다른 사람들과 실시간 클라우드 공유(동기화)를 위한 Firebase 설정
+// ----------------------------------------------------------------------
+// 아래 MY_FIREBASE_CONFIG에 본인의 Firebase 정보를 넣으면 웹에서 모두와 실시간 공유됩니다.
+// 설정값을 넣지 않으면 '내 기기(로컬) 저장' 모드로 동작합니다.
+const MY_FIREBASE_CONFIG = null;
+/*
+[설정 예시]
+const MY_FIREBASE_CONFIG = {
+  apiKey: "AIzaSy...",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project",
+  storageBucket: "your-project.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abcdef..."
+};
+*/
+
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'band-practice-app';
+const firebaseConfig = MY_FIREBASE_CONFIG || (typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null);
+
+let db = null;
+let auth = null;
+let currentUser = null;
+let useLocalStorageFallback = false;
+
+// 토글 데이터 처리 함수
+async function toggle(col, id, data) {
+  const set = col === 'avail' ? avail : dinner;
+  if (pending.has(col + id)) return;
+  pending.add(col + id);
+
+  updateStatus(true, '저장 중...');
+
+  try {
+    if (db && currentUser) {
+      // Firebase Firestore 사용 (개인 Firebase 설정 시 일반 컬렉션 경로 사용)
+      const docRef = MY_FIREBASE_CONFIG 
+        ? doc(db, col, id) 
+        : doc(db, 'artifacts', appId, 'public', 'data', col, id);
+
+      if (set.has(id)) {
+        await deleteDoc(docRef);
+      } else {
+        await setDoc(docRef, data);
+      }
+    } else {
+      // LocalStorage Fallback
+      if (set.has(id)) {
+        set.delete(id);
+      } else {
+        set.add(id);
+      }
+      saveLocalStorage();
+      broadcastLocalChange();
+      render();
+    }
+  } catch (e) {
+    console.error("저장 실패:", e);
+    showToast('데이터 저장 중 오류가 발생했습니다. 네트워크를 확인해 주세요.');
+  } finally {
+    pending.delete(col + id);
+    updateStatus(false);
+  }
+}
+<!-- ... existing code ... -->
+    currentUser = auth.currentUser;
+
+    if (!currentUser) {
+      throw new Error("인증 실패");
+    }
+
+    // 실시간 구독 설정
+    const availPath = MY_FIREBASE_CONFIG ? collection(db, 'avail') : collection(db, 'artifacts', appId, 'public', 'data', 'avail');
+    const dinnerPath = MY_FIREBASE_CONFIG ? collection(db, 'dinner') : collection(db, 'artifacts', appId, 'public', 'data', 'dinner');
+
+    onSnapshot(availPath, (snapshot) => {
+<!-- ... existing code ... -->
